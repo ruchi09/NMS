@@ -1,7 +1,16 @@
 #!/usr/bin/python3
 
+import sqlite3
 import threading
 from multiping import multi_ping
+import ctypes
+import os
+import sys
+import logging
+
+
+sem_db = threading.Semaphore()
+
 
 #-------------------------------------------------------------------------------------------------------------------
 # This function increments the ip_address provided
@@ -68,18 +77,34 @@ def match_addr(self,a1,a2):
 
 
 
-
 #-------------------------------------------------------------------------------------------------------------------
-#               Uses multiping module to send pings
+#               Uses multiping module to send pings and store the recieved pings in
 #-------------------------------------------------------------------------------------------------------------------
 
 def send_ping(self,addrs,no_of_retries):
 
-    print("sending again, waiting with retries via provided send_receive()")
+    logging.debug('Starting Ping')
+
     responses, no_response = multi_ping(addrs, timeout=1, retry=2,ignore_lookup_errors=True)
     print("\n\n\n\n   reponses: %s" % list(responses.keys()))
     if no_response:
         print("\n    no response received in time, even after retries: %s" % no_response)
+
+    sem_db.acquire()
+    conn = sqlite3.connect('NMS.db')
+    c = conn.cursor()
+    logging.debug('Starting storage')
+
+
+    for ip in responses:
+        print(ip)
+        c.execute("INSERT INTO IPs VALUES (?)",(ip,))
+
+    conn.commit()
+    conn.close()
+    sem_db.release()
+
+    logging.debug('Done Storing')
 
 
 
@@ -93,7 +118,7 @@ def discover(self):
 
     flag = True
     addr_current = self.addr_start
-    print("hi")
+    #print("hi")
 
     addrs = list()
     threads = []
@@ -101,7 +126,7 @@ def discover(self):
         print("in\n")
         count = 0
         addrs = []
-        while count<30 and self._match_addr(addr_current,self.addr_end)>=0:
+        while count<40 and self._match_addr(addr_current,self.addr_end)>=0:
             addrs.append(addr_current)
             addr_current = self._increment_addr(addr_current)
             count = count + 1
@@ -112,8 +137,12 @@ def discover(self):
             t=threading.Thread(target= self._send_ping, args=(addrs,2, ) )
             threads.append(t)
             t.start()
+            t.join()
         except:
             print ("Error: unable to start thread")
+
+    print("i am exiting discovery")
+
 
 
 
@@ -121,9 +150,46 @@ def discover(self):
 
 
 class NetworkDiscovery(object):
+
+    # Costructor
     def __init__(self,start ,end):
         self.addr_start = start
         self.addr_end = end
+        # checking the admin privilages
+        try:
+         is_admin = os.getuid() == 0
+        except AttributeError:
+         is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+
+        if is_admin==False:
+            print ("\n\n--------------------------------------------------------")
+            print ("    Administrative Privilages Required!!!!")
+            print ("--------------------------------------------------------\n\n")
+            sys.exit()
+
+        # preparing logs format
+        logging.basicConfig(level=logging.DEBUG,format='[%(levelname)s] (%(threadName)-10s) %(message)s',)
+
+
+
+
+
+    def assign_starting_address(self,start):
+        self.addr_start = start
+
+    def assign_ending_address(self,end):
+        self.addr_end = end
+
+    def create_da_and_table():
+
+        conn = sqlite3.connect('NMS.db')
+        c = conn.cursor()
+        # Create table
+        c.execute('''CREATE TABLE IPs (IP text)''')
+        c.commit()
+        conn.close()
+
+
 
     _increment_addr = increment_addr
     _match_addr = match_addr
@@ -135,7 +201,10 @@ class NetworkDiscovery(object):
 
 
 
+
 if __name__ == "__main__":
 
-    net = NetworkDiscovery("172.16.1.1","172.16.1.210")
+
+
+    net = NetworkDiscovery("172.16.255.0","172.16.255.255")
     net._discover()
