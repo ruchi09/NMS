@@ -90,19 +90,7 @@ def send_ping(self,addrs,no_of_retries):
     if no_response:
         print("\n    no response received in time, even after retries: %s" % no_response)
 
-    sem_db.acquire()
-    conn = sqlite3.connect('NMS.db')
-    c = conn.cursor()
-    logging.debug('Starting storage')
-
-
-    for ip in responses:
-        print(ip)
-        c.execute("INSERT INTO IPs VALUES (?)",(ip,))
-
-    conn.commit()
-    conn.close()
-    sem_db.release()
+    self.active_ips = self.active_ips | set(responses)
 
     logging.debug('Done Storing')
 
@@ -132,6 +120,7 @@ def discover(self):
             count = count + 1
 
         print(addrs)
+        # self._send_ping(addrs,2)
         #discover(addrs,2)
         try:
             t=threading.Thread(target= self._send_ping, args=(addrs,2, ) )
@@ -141,6 +130,21 @@ def discover(self):
         except:
             print ("Error: unable to start thread")
 
+
+    # sem_db.acquire()
+    conn = sqlite3.connect('NMS.db')
+    c = conn.cursor()
+    logging.debug('Starting storage')
+
+
+    for ip in self.active_ips:
+        print(ip)
+        c.execute("INSERT INTO IPs VALUES (?)",(ip,))
+
+    conn.commit()
+    conn.close()
+    # sem_db.release()
+    print self.active_ips
     print("i am exiting discovery")
 
 
@@ -151,6 +155,7 @@ def discover(self):
 
 class NetworkDiscovery(object):
 
+    active_ips = set()
     # Costructor
     def __init__(self,start ,end):
         self.addr_start = start
