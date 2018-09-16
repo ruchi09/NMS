@@ -1,15 +1,12 @@
 #!/usr/bin/python3
 
 import sqlite3
-import threading
 from multiping import multi_ping
 import ctypes
 import os
 import sys
 import logging
 
-
-sem_db = threading.Semaphore()
 
 
 #-------------------------------------------------------------------------------------------------------------------
@@ -90,7 +87,7 @@ def send_ping(self,addrs,no_of_retries):
     if no_response:
         print("\n    no response received in time, even after retries: %s" % no_response)
 
-    self.active_ips = self.active_ips | set(responses)
+    self.active_ips = self.active_ips | set(responses) # performing union
 
     logging.debug('Done Storing')
 
@@ -120,18 +117,18 @@ def discover(self):
             count = count + 1
 
         print(addrs)
-        # self._send_ping(addrs,2)
-        #discover(addrs,2)
-        try:
-            t=threading.Thread(target= self._send_ping, args=(addrs,2, ) )
-            threads.append(t)
-            t.start()
-            t.join()
-        except:
-            print ("Error: unable to start thread")
+        self._send_ping(addrs,2)
+        # discover(addrs,2)
+        # try:
+        #     t=threading.Thread(target= self._send_ping, args=(addrs,2, ) )
+        #     threads.append(t)
+        #     t.start()
+        #     # t.join()
+        # except:
+        #     print ("Error: unable to start thread")
 
 
-    # sem_db.acquire()
+
     conn = sqlite3.connect('NMS.db')
     c = conn.cursor()
     logging.debug('Starting storage')
@@ -143,7 +140,7 @@ def discover(self):
 
     conn.commit()
     conn.close()
-    # sem_db.release()
+
     print self.active_ips
     print("i am exiting discovery")
 
@@ -185,7 +182,7 @@ class NetworkDiscovery(object):
     def assign_ending_address(self,end):
         self.addr_end = end
 
-    def create_da_and_table():
+    def create_db_and_table():
 
         conn = sqlite3.connect('NMS.db')
         c = conn.cursor()
@@ -211,5 +208,5 @@ if __name__ == "__main__":
 
 
 
-    net = NetworkDiscovery("172.16.255.0","172.16.255.255")
+    net = NetworkDiscovery("172.17.0.1","172.17.1.1")
     net._discover()
