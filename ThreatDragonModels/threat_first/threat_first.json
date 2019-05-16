@@ -1,7 +1,8 @@
 {
   "summary": {
     "title": "threat_first",
-    "owner": "ruchi"
+    "owner": "ruchi",
+    "description": "it's a nms"
   },
   "detail": {
     "contributors": [],
